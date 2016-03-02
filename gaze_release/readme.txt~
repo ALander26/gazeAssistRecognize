@@ -1,0 +1,15 @@
+Adaptive Eye-Camera Calibration for Head-Worn Devices - CVPR 2015
+Authors: David Perra, Rohit Kumar Gupta, Jan-Micheal Frahm
+Platform: Windows and Linux
+please cite the above paper if you use this work
+code is free to distribute and any changes as long as the authors cite
+the above paper
+
+------
+Usage:
+1. Main.m - main file (keep all settings to default)
+2. Ensure that the code finds the /data path (default settings should work)
+
+
+Note: for any issue please contact the authors
+
