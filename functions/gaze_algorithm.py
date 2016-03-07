@@ -7,9 +7,9 @@ from scipy.spatial import ConvexHull
 from scipy.optimize import leastsq, minimize
 from skimage.measure import regionprops, label
 from skimage import morphology
-from skimage import segmentation
+# from skimage import segmentation
 from numpy.linalg import eig, inv
-from scipy.spatial.distance import euclidean
+# from scipy.spatial.distance import euclidean
 
 def indices(a, func):
     return [i for (i, val) in enumerate(a) if func(val)]

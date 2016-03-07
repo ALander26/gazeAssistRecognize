@@ -1,10 +1,10 @@
 import sys
 import init_path
 import gaze_algorithm as GA
-# import rcnnModule
+import rcnnModule
 import numpy as np
 import cv2, os
-import time
+from utils.timer import Timer
 import threading
 # from saliency_map import SaliencyMap
 # from utils import OpencvIo
@@ -13,11 +13,11 @@ import threading
 _WINSIZE = 5
 
 class CameraObject():
-	def __init__(self):
-		self.capScene = cv2.VideoCapture(1)
-		self.capEye = cv2.VideoCapture(0)
+	def __init__(self, gazeObject):
+		self.capScene = cv2.VideoCapture(0)
+		# self.capEye = cv2.VideoCapture(1)
 		self.sceneIm = self.capScene.read()
-		self.eyeIm = self.capEye.read()
+		# self.eyeIm = self.capEye.read()
 		self.calibPoints = {}
 		self.pupilCenters = {}
 		self.LED_centroids = {}
@@ -25,7 +25,7 @@ class CameraObject():
 
 	def update(self, num):
 		self.readFrameScene(num);
-		self.readFrameEye(num);
+		# self.readFrameEye(num);
 
 	def readFrameScene(self, num):
 		ret, frame = self.capScene.read()
@@ -52,8 +52,12 @@ class CameraObject():
 		cv2.destroyAllWindows()
 
 	def imProcessingScene(self, frame):
-		points = self.getCalibrationPointFromIm(frame)
-		gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+		# points = self.getCalibrationPointFromIm(frame)
+		# gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+		points = [0,0]
+		resized_image = cv2.resize(frame, (500, 375)) 
+		gray = resized_image
 		return gray, points
 
 	def imProcessingEye(self, im):
@@ -97,11 +101,25 @@ class CameraObject():
 		return
 
 def threadFunc(image, gazeData):
-	print "aaaa"
+	# print "aaaa"
 	feature = rcnnObject.getFeatureIm(image, gazeData);
 
 def main():
-	print "a"
+	rcnnModel = rcnnModule.RcnnObject('zf', False);
+	gazeObject = GA.gazeObject();
+	cam = CameraObject(gazeObject);
+
+	timer = Timer()
+
+	while(True):
+		cam.update(0)
+		cv2.imshow('frame', cam.sceneIm)
+		cv2.waitKey(1)
+		# print cam.sceneIm.shape
+		timer.tic()		
+		[scores, boxes] = rcnnModel.getFeatureIm(cam.sceneIm)
+		timer.toc()
+		# print scores
 
 if __name__ == '__main__':
 	main();
