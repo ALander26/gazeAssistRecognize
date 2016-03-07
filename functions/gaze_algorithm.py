@@ -222,26 +222,31 @@ class gazeObject:
 		# cv2.imwrite('01gray.jpg',im)
 		# ret,thresh = cv2.threshold(im,55,255,0)
 
-		cv2.imwrite('02thresh.jpg',im1)
-		im2, contours, hierarchy = cv2.findContours(im1,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+		# cv2.imwrite('02thresh.jpg',im1)
+		im2, contours = cv2.findContours(im1, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-		maxArea = 0;
-		maxContour = None;
+		print im2, contours
 
-		for cnt in contours:
-			# print cv2.contourArea(cnt)
-			if cv2.contourArea(cnt) < 20000 and cv2.contourArea(cnt) > 3000 and cv2.contourArea(cnt) > maxArea:
-				maxArea = cv2.contourArea(cnt)
-				maxContour = cnt
+		return im
 
-		contours = maxContour
-		x,y,w,h = [x + y for x, y in zip(list(cv2.boundingRect(contours)), [-10, -10, 20, 20])]
+		# maxArea = 0;
+		# maxContour = None;
 
-		self.pupil_OFFSET = np.array([x,y])
-		self.pupil_BOX = np.array([x,y,w,h])
-		im2 = im[y:y+h, x:x+w]
+		# for cnt in contours:
+		# 	# print cv2.contourArea(cnt)
+		# 	if cv2.contourArea(cnt) < 20000 and cv2.contourArea(cnt) > 3000 and cv2.contourArea(cnt) > maxArea:
+		# 		maxArea = cv2.contourArea(cnt)
+		# 		maxContour = cnt
 
-		return im2
+		# contours = maxContour
+		# x,y,w,h = [x + y for x, y in zip(list(cv2.boundingRect(contours)), [-10, -10, 20, 20])]
+
+		# self.pupil_OFFSET = np.array([x,y])
+		# self.pupil_BOX = np.array([x,y,w,h])
+		# im2 = im[y:y+h, x:x+w]
+
+		# return im2
+
 
 	def setROILED(self, im):
 		im1 = im.copy()

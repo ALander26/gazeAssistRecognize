@@ -11,11 +11,11 @@ def add_path(path):
 this_dir = osp.dirname(__file__)
 
 # Add caffe to PYTHONPATH
-caffe_path = osp.join(this_dir, 'fast-rcnn','caffe-fast-rcnn', 'python')
+caffe_path = osp.join(this_dir, 'py-fast-rcnn','caffe-fast-rcnn', 'python')
 add_path(caffe_path)
 
 # Add fast rcnnlib to PYTHONPATH
-fast_rcnn_lib_path = osp.join(this_dir, 'fast-rcnn', 'lib')
+fast_rcnn_lib_path = osp.join(this_dir, 'py-fast-rcnn', 'lib')
 add_path(fast_rcnn_lib_path)
 
 # Add functions to PYTHONPATH
@@ -26,7 +26,9 @@ add_path(func_path)
 data_path = osp.join(this_dir, 'data')
 add_path(data_path)
 
-
+# Add bing objectness
+bing_path = osp.join(this_dir, 'lib', 'BING-Objectness', 'source')
+add_path(bing_path)
 # # Add external library path
 # lib_path = osp.join(this_dir, 'libs', 'saliencyMap', 'src')
 # add_path(lib_path)

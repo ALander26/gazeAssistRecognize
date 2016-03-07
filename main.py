@@ -1,10 +1,9 @@
 import sys
 import init_path
 import gaze_algorithm as GA
-import rcnnModule
+# import rcnnModule
 import numpy as np
 import cv2, os
-import imageio
 import time
 import threading
 # from saliency_map import SaliencyMap
@@ -15,9 +14,9 @@ _WINSIZE = 5
 
 class CameraObject():
 	def __init__(self):
-		self.capScene = cv2.VideoCapture(0)
+		self.capScene = cv2.VideoCapture(1)
 		self.capEye = cv2.VideoCapture(0)
-		# self.sceneIm = self.capScene.read()
+		self.sceneIm = self.capScene.read()
 		self.eyeIm = self.capEye.read()
 		self.calibPoints = {}
 		self.pupilCenters = {}
@@ -26,7 +25,7 @@ class CameraObject():
 
 	def update(self, num):
 		self.readFrameScene(num);
-		# self.readFrameEye(num);
+		self.readFrameEye(num);
 
 	def readFrameScene(self, num):
 		ret, frame = self.capScene.read()
@@ -94,7 +93,7 @@ class CameraObject():
 
 	def optimize(self):
 		gazeObject = self.gazeObject();
-		gazeObject.optimizeGaze(self.calibPoints, self.pupilCenters, self.LED_centroids);
+		# gazeObject.optimizeGaze(self.calibPoints, self.pupilCenters, self.LED_centroids);
 		return
 
 def threadFunc(image, gazeData):
@@ -102,105 +101,7 @@ def threadFunc(image, gazeData):
 	feature = rcnnObject.getFeatureIm(image, gazeData);
 
 def main():
-
-	tick = 0
-	while(True):
-
-		t = time.time()
-		tick = tick+1
-		cameraObject.update(tick)
-		th = threading.Thread(target=threadFunc, args=(cameraObject.sceneIm,))
-		th.start()
-
-		cv2.imshow('frame', cameraObject.sceneIm)
-		if cv2.waitKey(1) & 0xFF == ord('q'):
-			break
-
-	# filename = 'dtest.mp4'
-	# vid = imageio.get_reader(filename,  'ffmpeg')
-
-	# i=39
-	# while(True):
-	# 	print i
-	# 	image = vid.get_data(i)
-	# 	eyeIm = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-	# 	oriIm = eyeIm.copy();
-
-	# 	# cv2.imshow('frame',eyeIm)
-	# 	# cv2.waitKey(0)
-
-	# 	pupilCenter = gazeObject.GetPupilBoundaryPoints(eyeIm)
-		
-	# 	if pupilCenter==None:
-	# 		# Blink state
-	# 		print "blink"
-	# 		i=i+1
-	# 		continue
-
-	# 	# pupilCenter = gazeObject.fitEllipse(x, y)
-	# 	LED_centroids = gazeObject.FindLEDCentroids(eyeIm)
-
-	# 	im2 = cv2.circle(oriIm, tuple(LED_centroids[0]), 10, (0,0,255), 2)
-	# 	im2 = cv2.circle(im2, tuple(LED_centroids[1]), 10, (0,0,255), 2)
-	# 	im2 = cv2.circle(im2, tuple(pupilCenter), 10, (0,0,255),2)
-	# 	cv2.imshow('frame',im2)
-	# 	if cv2.waitKey(1) & 0xFF == ord('q'):
-	# 		break
-	# 	i=i+1
-
-	# eyeIm = cv2.imread('eye.jpg');
-	# oriIm = eyeIm.copy();
-	# eyeIm = cv2.cvtColor(eyeIm, cv2.COLOR_BGR2GRAY)
-
-	# tick = 0
-	# while(True):
-
-	# 	t = time.time()
-	# 	tick = tick+1
-	# 	cameraObject.update(tick)
-
-		# print time.time() - t
-		# if tick ==_WINSIZE:
-		# 	cameraObject.optimize();
-		# 	cameraObject.clear()
-		# 	tick = 0
-
-		# gazeObject.GetPupilBoundaryPoints(eyeIm)
-
-		# cv2.imshow('frame', cameraObject.sceneIm)
-		# if cv2.waitKey(1) & 0xFF == ord('q'):
-		# 	break
-
-
-	# x,y = gazeObject.GetPupilBoundaryPoints(eyeIm)
-
-	# pupilCenter = gazeObject.fitEllipse(x, y)
-	# print pupilCenter
-	# LED_centroids = gazeObject.FindLEDCentroids(eyeIm)
-
-	# pupil_reflection = gazeObject.FindPointOfRefraction()
-
-	# corneal_center = gazeObject.FindCornealCenter(LED_centroids)
-
-	# pupil_center_world = gazeObject.FindPupilCenter(corneal_center, pupil_reflection)
-
-	# print corneal_center
-	# print pupil_center_world
-
-	# im2 = cv2.circle(oriIm, tuple(LED_centroids[0]), 10, (0,0,255), 2)
-	# im2 = cv2.circle(im2, tuple(LED_centroids[1]), 10, (0,0,255), 2)
-	# im2 = cv2.circle(im2, tuple(pupilCenter), 10, (0,0,255),2)
-	# cv2.imshow('frame', im2)
-	# cv2.waitKey(0)	
-	# print centroids
-    # Display the resulting frame
-
-	cameraObject.clearObject()
-
-
-gazeObject = GA.gazeObject();
-cameraObject = CameraObject();
-rcnnObject = rcnnModule.RcnnObject("vgg_cnn_m_1024", True);
+	print "a"
 
 if __name__ == '__main__':
 	main();

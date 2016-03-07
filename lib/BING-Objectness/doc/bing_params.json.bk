@@ -1,9 +1,14 @@
 {
+	// "basepath": "/opt/Datasets/VOC2007",
+	// "training_set_fn": "/opt/Datasets/VOC2007/ImageSets/Main/train.txt",
+	// "test_set_fn": "/opt/Datasets/VOC2007/ImageSets/Main/test.txt",
+	// "annotations_path": "/opt/Datasets/VOC2007/Annotations",
+	// "images_path": "/opt/Datasets/VOC2007/JPEGImages",
 	"results_dir": "/home/bbu/Workspace/gazeAssistRecognize/data/result",
 	"1st_stage_weights_fn":"/home/bbu/Workspace/gazeAssistRecognize/lib/BING-Objectness/doc/weights.txt",
 	"2nd_stage_weights_fn": "/home/bbu/Workspace/gazeAssistRecognize/lib/BING-Objectness/doc/2nd_stage_weights.json",
 	"sizes_indeces_fn": "/home/bbu/Workspace/gazeAssistRecognize/lib/BING-Objectness/doc/sizes.txt",
 	"num_win_psz": 180,
-	"num_bbs":5
+	"num_bbs":2000
 }
 

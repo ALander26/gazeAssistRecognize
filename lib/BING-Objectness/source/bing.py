@@ -3,7 +3,7 @@ Created on Jan 2, 2015
 
 @author: alessandro
 '''
-import init_path
+import add_path
 import os
 import cv2
 import sys
