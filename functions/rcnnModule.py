@@ -1,5 +1,5 @@
 from fast_rcnn.config import cfg
-from fast_rcnn.test import im_detect
+from fast_rcnn.test import im_detect, im_feature
 from fast_rcnn.nms_wrapper import nms
 from utils.timer import Timer
 from sklearn import svm
@@ -8,7 +8,6 @@ import numpy as np
 import scipy.io as sio
 import caffe, os, sys, cv2
 import argparse
-
 
 CLASSES = ('__background__',
 		   'aeroplane', 'bicycle', 'bird', 'boat',
@@ -99,10 +98,12 @@ class RcnnObject:
 	def getFeatureIm(self, im):
 		timer = Timer()
 		timer.tic()
-		scores, boxes = im_detect(self.net, im)
+		
+		features, boxes = im_feature(self.net, im)
 		# timer.toc()
 
-		return scores, boxes
+		print features.shape
+		return features, boxes
 		# Visualize detections for each class
 		# CONF_THRESH = 0.8
 		# NMS_THRESH = 0.3

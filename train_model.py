@@ -1,7 +1,7 @@
 import init_path
 from fast_rcnn.config import cfg
-from fast_rcnn.test import im_feature
-from utils.cython_nms import nms
+from fast_rcnn.test import im_detect, im_feature
+from fast_rcnn.nms_wrapper import nms
 from utils.timer import Timer
 from sklearn import svm
 import matplotlib.pyplot as plt
@@ -10,10 +10,17 @@ import scipy.io as sio
 import caffe, os, sys, cv2
 import argparse
 
-NETS = {'vgg_cnn_m_1024': ('VGG_CNN_M_1024',
-                           'vgg_cnn_m_1024_fast_rcnn_iter_40000.caffemodel'),
-        'caffenet': ('CaffeNet',
-                     'caffenet_fast_rcnn_iter_40000.caffemodel')}
+CLASSES = ('__background__',
+		   'aeroplane', 'bicycle', 'bird', 'boat',
+		   'bottle', 'bus', 'car', 'cat', 'chair',
+		   'cow', 'diningtable', 'dog', 'horse',
+		   'motorbike', 'person', 'pottedplant',
+		   'sheep', 'sofa', 'train', 'tvmonitor')
+
+NETS = {'vgg_cnn_m_1024': ('VGG_CNN_M_1024', 'vgg_cnn_m_1024_fast_rcnn_iter_40000.caffemodel'),
+		'caffenet': ('CaffeNet', 'caffenet_fast_rcnn_iter_40000.caffemodel'),
+		'zf': ('ZF', 'ZF_faster_rcnn_final.caffemodel')}
+
 
 def init_train():
 	setting = {}
