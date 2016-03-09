@@ -1,9 +1,8 @@
-import sys
 import init_path
 import gaze_algorithm as GA
 import rcnnModule
 import numpy as np
-import cv2, os
+import cv2, os, sys
 from utils.timer import Timer
 import threading
 # from saliency_map import SaliencyMap
@@ -105,7 +104,7 @@ def threadFunc(image, gazeData):
 	feature = rcnnObject.getFeatureIm(image, gazeData);
 
 def main():
-	rcnnModel = rcnnModule.RcnnObject('zf', False);
+	rcnnModel = rcnnModule.RcnnObject('vgg_cnn_m_1024', False);
 	gazeObject = GA.gazeObject();
 	cam = CameraObject(gazeObject);
 
