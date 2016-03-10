@@ -89,20 +89,14 @@ class RcnnObject:
 		print "hi"
 		box, score = self.getObjectnessBoxBing(im)
 
-	def getObjectnessBoxBing(self, im):
-		# b = Bing(~~~)
-		box, score = b.predict(im)
-
-		return box, score
-
 	def getFeatureIm(self, im):
-		timer = Timer()
-		timer.tic()
+		# timer = Timer()
+		# timer.tic()
 		
 		features, boxes = im_feature(self.net, im)
 		# timer.toc()
 
-		print features.shape
+		# print features.shape
 		return features, boxes
 		# Visualize detections for each class
 		# CONF_THRESH = 0.8

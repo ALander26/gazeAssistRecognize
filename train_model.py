@@ -1,14 +1,9 @@
 import init_path
-from fast_rcnn.config import cfg
-from fast_rcnn.test import im_detect, im_feature
-from fast_rcnn.nms_wrapper import nms
-from utils.timer import Timer
+import rcnnModule
 from sklearn import svm
-import matplotlib.pyplot as plt
 import numpy as np
-import scipy.io as sio
-import caffe, os, sys, cv2
-import argparse
+import os, sys, cv2
+import csv
 
 CLASSES = ('__background__',
 		   'aeroplane', 'bicycle', 'bird', 'boat',
@@ -23,12 +18,16 @@ NETS = {'vgg_cnn_m_1024': ('VGG_CNN_M_1024', 'vgg_cnn_m_1024_fast_rcnn_iter_4000
 
 
 def init_train():
+	print "Init Train..."
 	setting = {}
+	setting['NET'] = 'zf'
 	setting['ROOT_DIR'] = os.getcwd()
 	setting['DATA_DIR'] = os.path.join(setting['ROOT_DIR'], 'data')
+	setting['IMAGE_DIR'] = os.path.join(setting['DATA_DIR'], 'imageNet', 'images')
 	setting['DST_DIR'] = os.path.join(setting['DATA_DIR'], 'result')
-	categories = os.listdir(setting['DATA_DIR'] + '\scene')
-	categoryDirPath = [os.path.join(setting['DATA_DIR'], 'scene', f) for f in categories]
+	setting['featureDstDir'] = os.path.join(setting['DST_DIR'], 'imageNet', setting['NET'], "FEATURE")
+	categories = os.listdir(setting['IMAGE_DIR'])
+	categoryDirPath = [os.path.join(setting['IMAGE_DIR'], f) for f in categories]
 
 	cid2name = categories
 	cid2path = categoryDirPath
@@ -36,8 +35,10 @@ def init_train():
 	iid2name = np.array([])
 	iid2cid = np.array([])
 
+	cNum = len(cid2path)
 	cid = 0
 	for dirPath in categoryDirPath:
+		# dirPath = cid2path[i]
 		imList = np.array(os.listdir(dirPath))
 		imPath = np.array([os.path.join(dirPath, im) for im in imList])
 		iid2name = np.append(iid2name, imList)
@@ -45,30 +46,15 @@ def init_train():
 		iid2cid = np.append(iid2cid, np.ones(len(imPath))*cid)
 		cid = cid + 1
 
+	iid2cid = iid2cid.astype(int)
 	cid2name = np.array(cid2name)
 	cid2path = np.array(cid2path)
 
 	return setting, cid2name, cid2path, iid2path, iid2name, iid2cid
 
-def parse_args():
-    """Parse input arguments."""
-    parser = argparse.ArgumentParser(description='Train a Fast R-CNN network')
-    parser.add_argument('--gpu', dest='gpu_id', help='GPU device id to use [0]',
-                        default=0, type=int)
-    parser.add_argument('--cpu', dest='cpu_mode',
-                        help='Use CPU mode (overrides --gpu)',
-                        action='store_true')
-    parser.add_argument('--net', dest='demo_net', help='Network to use [vgg16]',
-                        choices=NETS.keys(), default='vgg_cnn_m_1024')
-
-    args = parser.parse_args()
-
-    return args
-
-def train_SVM(idx2desc, cid, iid2cid):
+def train_SVM(setting, idx2desc, iid2cid):
 	print "train SVM"
 	# SVM Training
-
 	numDesc = len(idx2desc)
 
 	target = np.array([])
@@ -79,7 +65,6 @@ def train_SVM(idx2desc, cid, iid2cid):
 		else:
 			target = np.append(target, np.array([-1]))
 
-
 	imageFeatures = idx2desc
 	clf = svm.LinearSVC(C=10)
 	clf.fit(imageFeatures, target)
@@ -87,46 +72,97 @@ def train_SVM(idx2desc, cid, iid2cid):
 	w = clf.get_params()
 	return clf
 
+def loadDesc(setting, iid2path):
+	print "Load Desc..."
+	featureDstDir = setting['featureDstDir']
+
+def readCSV(path):
+	with open(path, 'rb') as f:
+		reader = csv.reader(f, )
+
+def writeCSV(data, path):
+	with open(path, 'wb') as fout:
+	    writer = csv.writer(fout, delimiter=',')
+	    for d in data:
+	    	writer.writerow([d])
+
+def featureExtraction(setting, cid2name, cid2path, iid2path, iid2name, iid2cid, rcnnModel):
+	print "Feature Extraction.."
+	featureDstDir = setting['featureDstDir']
+
+	if not os.path.exists(featureDstDir):
+		os.makedirs(featureDstDir)
+
+	numIm = len(iid2path)
+
+	descExist = np.zeros(numIm)
+	fList = np.array([ int(x[0:-4]) for x in os.listdir(featureDstDir) ])
+
+	for i in fList:
+		descExist[i] = 1
+
+	nonDescList = np.where(descExist == 0)[0]
+	numDesc = len(nonDescList)
+
+	if numDesc==0:
+		print "No image to desc."
+
+	cnt = 0
+	for i in nonDescList:
+		print i, cid2name[iid2cid[i]], iid2name[i],": %0.2f percent finished" % (cnt*100.0/numDesc)
+		im  = cv2.imread(iid2path[i])
+		[features, bbox] = rcnnModel.getFeatureIm(im)
+
+		feature = np.mean(features, axis=0)
+
+		fileName = "%06d.csv" % i
+		filePath = os.path.join(featureDstDir, fileName)
+		writeCSV(feature, filePath)
+		cnt = cnt+1
+
 def main():
-
-	args = parse_args()
-
-	prototxt = os.path.join(cfg.ROOT_DIR, 'models', NETS[args.demo_net][0],
-					'test.prototxt')
-	caffemodel = os.path.join(cfg.ROOT_DIR, 'data', 'fast_rcnn_models', NETS[args.demo_net][1])
-
-	if not os.path.isfile(caffemodel):
-		raise IOError(('{:s} not found.\nDid you run ./data/scripts/'
-						'fetch_fast_rcnn_models.sh?').format(caffemodel))
-
-	if args.cpu_mode:
-		caffe.set_mode_cpu()
-	else:
-		caffe.set_mode_gpu()
-		caffe.set_device(args.gpu_id)
-	net = caffe.Net(prototxt, caffemodel, caffe.TEST)
 
 	[setting, cid2name, cid2path, iid2path, iid2name, iid2cid] = init_train();
 
-	featureDstDir = os.path.join(setting['DST_DIR'], 'SCENE_FEATURE')
-	if os.path.exists(featureDstDir):
-		print ""
-	else:
-		os.mkdir(featureDstDir)
-	# len(iid2path)
-	numIm = 7
-	for i in range(0, numIm):
-		fileName = "ID%06d.mat" % (i+1)
-		box_file = os.path.join(setting['DST_DIR'], 'SCENE', fileName)
-		obj_proposals = np.array(sio.loadmat(box_file)['desc'])
-		obj_proposals = obj_proposals[:,0:4].astype(int)
-		im = cv2.imread(iid2path[i])
+	print "rcnnModel loading..."
+	rcnnModel = rcnnModule.RcnnObject('vgg_cnn_m_1024', False);
 
-		feature = im_feature(net, im, obj_proposals)
+	featureExtraction(setting, cid2name, cid2path, iid2path, iid2name, iid2cid, rcnnModel)
 
-		filePath = os.path.join(featureDstDir, fileName)
-		sio.savemat(filePath, {'feature':feature})
-		print "%.2f percent complete" % ((i+1)*100/float(numIm))
+	idx2desc = loadDesc(setting, iid2path)
+	train_SVM(setting, idx2desc, iid2cid)
+	# print init_train()
+
+
+	# for i in xrange(0, numCls):
+	# 	Dir = os.path.join(featureDstDir, cid2name[i])
+	# 	if not os.path.exists(clsDir):
+	# 		os.mkdir(clsDir)
+
+	# numIm = 1
+
+
+		# print bbox.shape, feature.shape
+		# print type(iid2cid[i]), cid2name[iid2cid[i]], iid2name[i]
+		# print feature.shape
+
+	# for i in xrange(0, numCls):
+	# 	for j
+	# idx2desc = featureExtraction(setting, iid2path, iid2cid)
+
+	# numIm = 7
+	# for i in range(0, numIm):
+	# 	fileName = "ID%06d.mat" % (i+1)
+	# 	box_file = os.path.join(setting['DST_DIR'], 'SCENE', fileName)
+	# 	obj_proposals = np.array(sio.loadmat(box_file)['desc'])
+	# 	obj_proposals = obj_proposals[:,0:4].astype(int)
+	# 	im = cv2.imread(iid2path[i])
+
+	# 	feature = im_feature(net, im, obj_proposals)
+
+	# 	filePath = os.path.join(featureDstDir, fileName)
+	# 	sio.savemat(filePath, {'feature':feature})
+	# 	print "%.2f percent complete" % ((i+1)*100/float(numIm))
 
 
 

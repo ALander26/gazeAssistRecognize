@@ -104,7 +104,7 @@ def threadFunc(image, gazeData):
 	feature = rcnnObject.getFeatureIm(image, gazeData);
 
 def main():
-	rcnnModel = rcnnModule.RcnnObject('vgg_cnn_m_1024', False);
+	rcnnModel = rcnnModule.RcnnObject('zf', False);
 	gazeObject = GA.gazeObject();
 	cam = CameraObject(gazeObject);
 
@@ -118,7 +118,7 @@ def main():
 		timer.tic()		
 		[scores, boxes] = rcnnModel.getFeatureIm(cam.sceneIm)
 		timer.toc()
-		# print scores
+		print scores.shape
 
 if __name__ == '__main__':
 	main();
