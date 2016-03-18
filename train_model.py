@@ -4,6 +4,10 @@ from sklearn import svm
 import numpy as np
 import os, sys, cv2
 import csv
+from sklearn.multiclass import OneVsRestClassifier
+from sklearn.svm import LinearSVC
+from utils.timer import Timer
+from sklearn.externals import joblib
 
 CLASSES = ('__background__',
 		   'aeroplane', 'bicycle', 'bird', 'boat',
@@ -24,9 +28,12 @@ def init_train():
 	setting['ROOT_DIR'] = os.getcwd()
 	setting['DATA_DIR'] = os.path.join(setting['ROOT_DIR'], 'data')
 	setting['IMAGE_DIR'] = os.path.join(setting['DATA_DIR'], 'imageNet', 'images')
+	setting['TEST_DIR'] = os.path.join(setting['DATA_DIR'], 'Test')
 	setting['DST_DIR'] = os.path.join(setting['DATA_DIR'], 'result')
-	setting['featureDstDir'] = os.path.join(setting['DST_DIR'], 'imageNet', setting['NET'], "FEATURE")
-	categories = os.listdir(setting['IMAGE_DIR'])
+	setting['DST_MODEL_DIR'] = os.path.join(setting['DST_DIR'], 'imageNet', setting['NET'])
+	setting['featureDstDir'] = os.path.join(setting['DST_MODEL_DIR'], "FEATURE")
+
+	categories = sorted([f for f in os.listdir(setting['IMAGE_DIR'])])
 	categoryDirPath = [os.path.join(setting['IMAGE_DIR'], f) for f in categories]
 
 	cid2name = categories
@@ -39,7 +46,7 @@ def init_train():
 	cid = 0
 	for dirPath in categoryDirPath:
 		# dirPath = cid2path[i]
-		imList = np.array(os.listdir(dirPath))
+		imList = np.array(sorted([f for f in os.listdir(dirPath)]))
 		imPath = np.array([os.path.join(dirPath, im) for im in imList])
 		iid2name = np.append(iid2name, imList)
 		iid2path = np.append(iid2path, imPath)
@@ -52,33 +59,75 @@ def init_train():
 
 	return setting, cid2name, cid2path, iid2path, iid2name, iid2cid
 
-def train_SVM(setting, idx2desc, iid2cid):
+def train_SVM(setting, y):
 	print "train SVM"
 	# SVM Training
-	numDesc = len(idx2desc)
 
-	target = np.array([])
-	for i in xrange(0,numDesc):
-		imageID = iid2cid(i)
-		if imageID == cid:
-			target = np.append(target, np.array([1]))
-		else:
-			target = np.append(target, np.array([-1]))
+	# SVM options
+	# svm_kernel                  	= 'rbf';
+	# svm_C							= 1.0;
+	# svm_loss						= 'squared_hinge'
+	# svm_penalty					= 'l2'
+	# svm_multi_class				= 'ovr'
+	# svm_random_state				= 0 
 
-	imageFeatures = idx2desc
-	clf = svm.LinearSVC(C=10)
-	clf.fit(imageFeatures, target)
 
-	w = clf.get_params()
+	filePath = os.path.join(setting['DST_MODEL_DIR'], "svm_trained.pkl")
+	try:
+		clf = joblib.load(filePath)
+		print "using trained model"		
+	except:
+		print "building svm model"
+		X = loadDesc(setting)
+		X = X.astype('float')
+		timer = Timer()	
+
+		timer.tic()
+		clf = OneVsRestClassifier(LinearSVC(random_state=0)).fit(X, y)
+		timer.toc()
+		print timer.total_time
+
+		joblib.dump(clf, filePath)
+
+	# TEST
+	# print clf.decision_function(X[0])
+	# print clf.predict(X[5000])
 	return clf
 
-def loadDesc(setting, iid2path):
+def loadDesc(setting):
 	print "Load Desc..."
-	featureDstDir = setting['featureDstDir']
+	timer = Timer()	
 
+	featureDstDir = setting['featureDstDir']
+	sortedList = sorted([ f for f in os.listdir(featureDstDir)])
+	descPath = np.array([ os.path.join(featureDstDir, x) for x in sortedList])
+
+	X = []
+	cnt = 0
+	size = len(descPath)
+	timer.tic()
+	for path in descPath:
+		feature = readCSV(path)
+		X.append(feature)
+		print "%d / %d file loaded" % (cnt, size)
+		cnt = cnt + 1
+
+	timer.toc()
+
+	# print timer.total_time
+
+	X = np.array(X)
+	X = np.reshape(X, X.shape[0:2])
+	return X
+	
 def readCSV(path):
+	rlist = []
 	with open(path, 'rb') as f:
-		reader = csv.reader(f, )
+		reader = csv.reader(f, delimiter=' ')
+		for row in reader:
+			rlist.append(row)
+
+	return np.array(rlist)
 
 def writeCSV(data, path):
 	with open(path, 'wb') as fout:
@@ -120,6 +169,24 @@ def featureExtraction(setting, cid2name, cid2path, iid2path, iid2name, iid2cid, 
 		writeCSV(feature, filePath)
 		cnt = cnt+1
 
+def TestModel(setting, rcnnModel, clf):
+	print "Test trained Model"
+	testDir = setting['TEST_DIR']
+	sortedList = sorted([ f for f in os.listdir(testDir)])
+
+	imPath = np.array([ os.path.join(testDir, x) for x in sortedList])
+	for path in imPath:
+		im  = cv2.imread(path)
+		[features, bbox] = rcnnModel.getFeatureIm(im)
+
+		feature = np.mean(features, axis=0)
+
+		predict_result = clf.predict(features)
+
+		print clf.predict(feature)
+		print len(np.where(predict_result==0)[0])
+	# print imPath
+
 def main():
 
 	[setting, cid2name, cid2path, iid2path, iid2name, iid2cid] = init_train();
@@ -129,53 +196,9 @@ def main():
 
 	featureExtraction(setting, cid2name, cid2path, iid2path, iid2name, iid2cid, rcnnModel)
 
-	idx2desc = loadDesc(setting, iid2path)
-	train_SVM(setting, idx2desc, iid2cid)
-	# print init_train()
+	clf = train_SVM(setting, iid2cid)
 
-
-	# for i in xrange(0, numCls):
-	# 	Dir = os.path.join(featureDstDir, cid2name[i])
-	# 	if not os.path.exists(clsDir):
-	# 		os.mkdir(clsDir)
-
-	# numIm = 1
-
-
-		# print bbox.shape, feature.shape
-		# print type(iid2cid[i]), cid2name[iid2cid[i]], iid2name[i]
-		# print feature.shape
-
-	# for i in xrange(0, numCls):
-	# 	for j
-	# idx2desc = featureExtraction(setting, iid2path, iid2cid)
-
-	# numIm = 7
-	# for i in range(0, numIm):
-	# 	fileName = "ID%06d.mat" % (i+1)
-	# 	box_file = os.path.join(setting['DST_DIR'], 'SCENE', fileName)
-	# 	obj_proposals = np.array(sio.loadmat(box_file)['desc'])
-	# 	obj_proposals = obj_proposals[:,0:4].astype(int)
-	# 	im = cv2.imread(iid2path[i])
-
-	# 	feature = im_feature(net, im, obj_proposals)
-
-	# 	filePath = os.path.join(featureDstDir, fileName)
-	# 	sio.savemat(filePath, {'feature':feature})
-	# 	print "%.2f percent complete" % ((i+1)*100/float(numIm))
-
-
-
-# setting.svm.kernel                  = 'NONE';               % DO NOT TOUCH) Additive kernel map before training SVMs.
-# setting.svm.norm                    = 'L2';                 % DO NOT TOUCH) Normalization type before training SVMs.
-# setting.svm.c                       = 10;                   % DO NOT TOUCH) SVM parameter.
-# setting.svm.epsilon                 = 1e-3;                 % DO NOT TOUCH) SVM parameter.
-# setting.svm.biasMultiplier          = 1;                    % DO NOT TOUCH) SVM parameter.
-# setting.svm.biasLearningRate        = 0.5;                  % DO NOT TOUCH) SVM parameter.
-# setting.svm.loss                    = 'HINGE';              % DO NOT TOUCH) SVM parameter.
-# setting.svm.solver                  = 'SDCA';               % DO NOT TOUCH) SVM parameter.
-
-
+	TestModel(setting, rcnnModel, clf)
 
 if __name__ == '__main__':
 	main()

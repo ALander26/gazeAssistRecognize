@@ -1,13 +1,21 @@
 import init_path
 import gaze_algorithm as GA
+import train_model as TM
 import rcnnModule
 import numpy as np
 import cv2, os, sys
-from utils.timer import Timer
-import threading
+import time
+import matplotlib.pyplot as plt
+from sklearn.multiclass import OneVsRestClassifier
+from sklearn.svm import LinearSVC
+from sklearn.externals import joblib
 # from saliency_map import SaliencyMap
 # from utils import OpencvIo
 
+CLASSES = ('__background__',
+           'book', 'cellphone', 'cloud', 'coffee',
+           'computer', 'cup', 'man', 'mouse', 'pen',
+           'people', 'road', 'woman')
 
 _WINSIZE = 5
 
@@ -99,26 +107,77 @@ class CameraObject():
 		# gazeObject.optimizeGaze(self.calibPoints, self.pupilCenters, self.LED_centroids);
 		return
 
-def threadFunc(image, gazeData):
-	# print "aaaa"
-	feature = rcnnObject.getFeatureIm(image, gazeData);
+# def threadFunc(image, gazeData):
+# 	# print "aaaa"
+# 	feature = rcnnObject.getFeatureIm(image, gazeData);
+
+
+def loadTrainModel():
+	setting = {}
+	setting['NET'] = 'zf'
+	setting['ROOT_DIR'] = os.getcwd()
+	setting['DATA_DIR'] = os.path.join(setting['ROOT_DIR'], 'data')
+	setting['DST_DIR'] = os.path.join(setting['DATA_DIR'], 'result')	
+	setting['DST_MODEL_DIR'] = os.path.join(setting['DST_DIR'], 'imageNet', setting['NET'])
+	filePath = os.path.join(setting['DST_MODEL_DIR'], "svm_trained.pkl")
+
+	clf = joblib.load(filePath)
+
+	return clf
+
+def vis_detections(im, class_name, dets, thresh=0.5):
+    """Draw detected bounding boxes."""
+    inds = np.where(dets[:, -1] >= thresh)[0]
+    if len(inds) == 0:
+        return
+
+    im = im[:, :, (2, 1, 0)]
+    fig, ax = plt.subplots(figsize=(12, 12))
+    ax.imshow(im, aspect='equal')
+    for i in inds:
+        bbox = dets[i, :4]
+        score = dets[i, -1]
+
+        ax.add_patch(
+            plt.Rectangle((bbox[0], bbox[1]),
+                          bbox[2] - bbox[0],
+                          bbox[3] - bbox[1], fill=False,
+                          edgecolor='red', linewidth=3.5)
+            )
+        ax.text(bbox[0], bbox[1] - 2,
+                '{:s} {:.3f}'.format(class_name, score),
+                bbox=dict(facecolor='blue', alpha=0.5),
+                fontsize=14, color='white')
+
+    ax.set_title(('{} detections with '
+                  'p({} | box) >= {:.1f}').format(class_name, class_name,
+                                                  thresh),
+                  fontsize=14)
+    plt.axis('off')
+    plt.tight_layout()
+    plt.draw()
 
 def main():
 	rcnnModel = rcnnModule.RcnnObject('zf', False);
 	gazeObject = GA.gazeObject();
 	cam = CameraObject(gazeObject);
 
-	timer = Timer()
+	clf = loadTrainModel()
 
 	while(True):
 		cam.update(0)
 		cv2.imshow('frame', cam.sceneIm)
 		cv2.waitKey(1)
-		# print cam.sceneIm.shape
-		timer.tic()		
-		[scores, boxes] = rcnnModel.getFeatureIm(cam.sceneIm)
-		timer.toc()
-		print scores.shape
+		[feature, boxes] = rcnnModel.getFeatureIm(cam.sceneIm)
+
+		predict_result = clf.predict(feature)
+
+		print len(np.where(predict_result == 7)[0])
+		# # vis_detection(cam.sceneIm, )
+		# feature_mean = np.mean(feature, axis=0)
+
+		# print clf.predict(feature_mean), clf.decision_function(feature_mean)
+		# bookNum = np.where(List == 0)[0]
 
 if __name__ == '__main__':
 	main();
