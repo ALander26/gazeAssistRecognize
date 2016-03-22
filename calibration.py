@@ -23,8 +23,8 @@ class CameraObject():
 
 	def readFrameScene(self):
 		ret, frame = self.capScene.read()
-		[im, points] = self.imProcessingScene(frame)
-		self.sceneIm = im
+		# [im, points] = self.imProcessingScene(frame)
+		self.sceneIm = frame
 		# self.calibPoints[num] = points
 		return frame
 

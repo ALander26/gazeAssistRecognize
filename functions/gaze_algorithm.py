@@ -2,14 +2,17 @@ import sys, os
 import numpy as np
 import cv2
 import math
+import heapq
 from matplotlib import pyplot as plt
 from scipy.spatial import ConvexHull
 from scipy.optimize import leastsq, minimize
 from skimage.measure import regionprops, label
+from skimage.segmentation import clear_border
 from skimage import morphology
+# from scipy.spatial import distance
 # from skimage import segmentation
 from numpy.linalg import eig, inv
-# from scipy.spatial.distance import euclidean
+from scipy.spatial.distance import euclidean
 
 def indices(a, func):
     return [i for (i, val) in enumerate(a) if func(val)]
@@ -23,7 +26,7 @@ class gazeObject:
 		self.pupil_OFFSET = np.array([0,0])
 		self.led_OFFSET = np.array([0,0])
 		self.pupil_BOX = np.array([0,0,0,0])
-		self.pupil_thresh = 47
+		self.pupil_thresh = 50
 		self.reflection_thresh = 190
 		self.winsize = 5
 		self.led_world_positions = np.array([[6.3640,6.3640],[-6.3640,6.3640],[0,0]])
@@ -43,24 +46,28 @@ class gazeObject:
 	def GetPupilBoundaryPoints(self, im):
 		print "Get pupil boundary points."
 
-		ret, bw_im = cv2.threshold(im, self.pupil_thresh, 255, cv2.THRESH_BINARY)
+		# ret, bw_im = cv2.threshold(im, self.pupil_thresh, 255, cv2.THRESH_BINARY)
 		# ret, reflection_im = cv2.threshold(im, self.reflection_thresh, 255, cv2.THRESH_BINARY)
 
-		# cv2.imshow('frame', bw_im)
-		# cv2.waitKey(0)	
+		roi_im = self.setROI(im)
 
-		roi_im = self.setROI(bw_im)
+		if roi_im.shape == (480, 640):
+			return None
+
+		# cv2.imshow('frame', roi_im)
+		# cv2.waitKey(0)	
 
 		laplacian = cv2.Laplacian(roi_im, cv2.CV_64F)
 
 		inds = np.where(laplacian > 0)
 
 		inds = np.array(inds)
+		inds = inds.T
+
 
 		if len(inds) < 2:
 			return None # blink
 
-		inds = inds.T
 		inds = inds[:,0:2]
 		hull = ConvexHull(inds)
 		# for simplex in hull.simplices:
@@ -99,39 +106,110 @@ class gazeObject:
 	def FindLEDCentroids(self, im):
 		print "Find LED Centroids."
 
-		roi_im = self.setROILED(im)
+		roi_im, l1_centroid, l2_centroid = self.setROILED(im)
 
-		cv2.imshow('frame', roi_im)
-		cv2.waitKey(0)	
-
-		ret, bw_im = cv2.threshold(roi_im, self.reflection_thresh, 255, cv2.THRESH_BINARY)
-
-		cleand = morphology.remove_small_objects(bw_im, min_size=36, connectivity=2)
-		label_img = label(cleand, connectivity=cleand.ndim)
-
-
-		props = regionprops(label_img)
+		if roi_im is None:
+			return None
 
 		centroids = np.zeros((2,2))
-		# OFFSET = np.array([self.OFFSET_X, self.OFFSET_Y])
-		centroids[0] = props[0].centroid + self.LED_OFFSET
-		centroids[1] = props[1].centroid + self.LED_OFFSET
-
-		print centroids
+		centroids[0] = l1_centroid + self.LED_OFFSET
+		centroids[1] = l2_centroid + self.LED_OFFSET
 
 		centroids = np.fliplr(centroids)
 		centroids = centroids.astype(int)
 
 		centroids = centroids + self.led_OFFSET
 		
+		# cv2.imshow('frame', roi_im)
+		# cv2.waitKey(0)	
+
 		if centroids[0][0] < centroids[1][0]:
 			temp = centroids[1].copy()
 			centroids[1] = centroids[0]
 			centroids[0] = temp
 		
-		print centroids
+		# print centroids
 		self.ledCentroids = centroids
 		return centroids
+
+	def setROI(self, im):
+
+		# Find pupil contour and set ROI
+
+		cArea = 0;
+		maxArea = 0;
+		maxContour = None;
+
+		for pupilthreshold in xrange(45, 60):
+			im1 = im.copy()
+			ret, thresh = cv2.threshold(im1, pupilthreshold,255,0)
+			contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+			maxArea = 0;
+			maxContour = None;
+
+			if len(contours) < 2:
+				continue
+
+			for cnt in contours:
+				cArea = cv2.contourArea(cnt)
+				# print cArea
+				if cArea < 8000 and cArea > 4300 and cArea > maxArea:
+					maxArea = cArea
+					maxContour = cnt
+
+			if maxArea == 0:
+				continue
+			else:
+				contours = maxContour
+				x,y,w,h = [x + y for x, y in zip(list(cv2.boundingRect(contours)), [-10, -10, 20, 20])]
+
+				self.pupil_OFFSET = np.array([x,y])
+				self.pupil_BOX = np.array([x,y,w,h])
+
+				print pupilthreshold, maxArea
+				ret, thresh = cv2.threshold(im1, pupilthreshold,255,0)
+				im2 = thresh[y:y+h, x:x+w]
+				break;
+
+		if maxArea == 0:
+			return im
+
+		return im2
+
+
+	def setROILED(self, im):
+		im1 = im.copy()
+
+		box = self.pupil_BOX
+
+		x,y,w,h = box + [-20,-30, 40, 60]
+		self.led_OFFSET = np.array([x,y])
+		im2 = im[y:y+h, x:x+w]
+
+		center_point = [e / 2 for e in im2.shape]
+
+		for ledthreshold in xrange(210, 150, -2):
+
+			ret, bw_im = cv2.threshold(im2, ledthreshold, 255, cv2.THRESH_BINARY)
+			cleared = bw_im.copy()
+			clear_border(cleared)
+			label_img = label(cleared)
+
+			props = regionprops(label_img)
+
+			if len(props) < 2:
+				continue
+			elif len(props) >= 2:
+				dist = [euclidean(center_point, e.centroid) for e in props]
+				minDist_idx = [dist.index(e) for e in heapq.nsmallest(2, dist)]
+				props[0], props[1] = props[minDist_idx[0]], props[minDist_idx[1]]
+
+			if props[0].area > 30 and props[1].area > 30 and props[0].area < 60 and props[1].area < 60:
+				return bw_im, props[0].centroid, props[1].centroid
+
+		return None, None, None
+		
 
 	def FindCalibrationPointsGBVS(self):
 		print "Find calibration points using GBVS"
@@ -207,7 +285,10 @@ class gazeObject:
 	def fitEllipse(self, x,y):
 		print "Fit Ellipse"
 
-		pupil = cv2.fitEllipse(np.array([x, y]).T)
+		pupil, axis, angle = cv2.fitEllipse(np.array([x, y]).T)
+
+		if axis[0]/axis[1] < 0.8:
+			return None
 
 		self.pupil_image_center = (np.array(pupil[0]) + self.pupil_OFFSET).astype(int)
 
@@ -215,49 +296,6 @@ class gazeObject:
 
 	def FindCalibPoitns(self, im):
 		print "Find calibration points"
-
-	def setROI(self, im):
-		im1 = im.copy()
-
-		# cv2.imwrite('01gray.jpg',im)
-		# ret,thresh = cv2.threshold(im,55,255,0)
-
-		# cv2.imwrite('02thresh.jpg',im1)
-		im2, contours = cv2.findContours(im1, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-		print im2, contours
-
-		return im
-
-		# maxArea = 0;
-		# maxContour = None;
-
-		# for cnt in contours:
-		# 	# print cv2.contourArea(cnt)
-		# 	if cv2.contourArea(cnt) < 20000 and cv2.contourArea(cnt) > 3000 and cv2.contourArea(cnt) > maxArea:
-		# 		maxArea = cv2.contourArea(cnt)
-		# 		maxContour = cnt
-
-		# contours = maxContour
-		# x,y,w,h = [x + y for x, y in zip(list(cv2.boundingRect(contours)), [-10, -10, 20, 20])]
-
-		# self.pupil_OFFSET = np.array([x,y])
-		# self.pupil_BOX = np.array([x,y,w,h])
-		# im2 = im[y:y+h, x:x+w]
-
-		# return im2
-
-
-	def setROILED(self, im):
-		im1 = im.copy()
-
-		box = self.pupil_BOX
-
-		x,y,w,h = box + [-20,-30, 40, 60]
-		im2 = im[y:y+h, x:x+w]
-
-		self.led_OFFSET = np.array([x,y])
-		return im2
 
 	def optimizeGaze(self, calib_points, pupil_centers, led_centroids):
 		print "Optimize Gaze Point"

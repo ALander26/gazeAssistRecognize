@@ -192,7 +192,7 @@ def main():
 	[setting, cid2name, cid2path, iid2path, iid2name, iid2cid] = init_train();
 
 	print "rcnnModel loading..."
-	rcnnModel = rcnnModule.RcnnObject('vgg_cnn_m_1024', False);
+	rcnnModel = rcnnModule.RcnnObject('zf', False);
 
 	featureExtraction(setting, cid2name, cid2path, iid2path, iid2name, iid2cid, rcnnModel)
 

@@ -1,7 +1,7 @@
 import init_path
 import gaze_algorithm as GA
-import train_model as TM
-import rcnnModule
+# import train_model as TM
+# import rcnnModule
 import numpy as np
 import cv2, os, sys
 import time
@@ -21,10 +21,10 @@ _WINSIZE = 5
 
 class CameraObject():
 	def __init__(self, gazeObject):
-		self.capScene = cv2.VideoCapture(0)
-		# self.capEye = cv2.VideoCapture(1)
+		self.capScene = cv2.VideoCapture(1)
+		self.capEye = cv2.VideoCapture(0)
 		self.sceneIm = self.capScene.read()
-		# self.eyeIm = self.capEye.read()
+		self.eyeIm = self.capEye.read()
 		self.calibPoints = {}
 		self.pupilCenters = {}
 		self.LED_centroids = {}
@@ -32,7 +32,7 @@ class CameraObject():
 
 	def update(self, num):
 		self.readFrameScene(num);
-		# self.readFrameEye(num);
+		self.readFrameEye(num);
 
 	def readFrameScene(self, num):
 		ret, frame = self.capScene.read()
@@ -158,21 +158,21 @@ def vis_detections(im, class_name, dets, thresh=0.5):
     plt.draw()
 
 def main():
-	rcnnModel = rcnnModule.RcnnObject('zf', False);
+	# rcnnModel = rcnnModule.RcnnObject('zf', False);
 	gazeObject = GA.gazeObject();
 	cam = CameraObject(gazeObject);
 
-	clf = loadTrainModel()
+	# clf = loadTrainModel()
 
 	while(True):
 		cam.update(0)
-		cv2.imshow('frame', cam.sceneIm)
+		cv2.imshow('frame', cam.eyeIm)
 		cv2.waitKey(1)
-		[feature, boxes] = rcnnModel.getFeatureIm(cam.sceneIm)
+		# [feature, boxes] = rcnnModel.getFeatureIm(cam.sceneIm)
 
-		predict_result = clf.predict(feature)
+		# predict_result = clf.predict(feature)
 
-		print len(np.where(predict_result == 7)[0])
+		# print len(np.where(predict_result == 7)[0])
 		# # vis_detection(cam.sceneIm, )
 		# feature_mean = np.mean(feature, axis=0)
 
