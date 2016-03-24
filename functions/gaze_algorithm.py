@@ -205,7 +205,7 @@ class gazeObject:
 				minDist_idx = [dist.index(e) for e in heapq.nsmallest(2, dist)]
 				props[0], props[1] = props[minDist_idx[0]], props[minDist_idx[1]]
 
-			if props[0].area > 30 and props[1].area > 30 and props[0].area < 60 and props[1].area < 60:
+			if props[0].area > 27 and props[1].area > 27 and props[0].area < 60 and props[1].area < 60:
 				return bw_im, props[0].centroid, props[1].centroid
 
 		return None, None, None

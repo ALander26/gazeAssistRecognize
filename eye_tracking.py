@@ -154,7 +154,7 @@ def vis_detections(im, class_name, dets, thresh=0.5):
 												  thresh),
 				  fontsize=14)
 	plt.axis('off')
-	plt.tight_layout()q
+	plt.tight_layout()
 	plt.draw()
 
 def main():
