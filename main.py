@@ -23,6 +23,13 @@ class CameraObject():
 	def __init__(self, gazeObject):
 		self.capScene = cv2.VideoCapture(1)
 		self.capEye = cv2.VideoCapture(0)
+
+		if not self.capScene.isOpened():
+			print "Scene Camera don`t connected"
+
+		if not self.capEye.isOpened():
+			print "Eye Camera don`t connected"
+
 		self.sceneIm = self.capScene.read()
 		self.eyeIm = self.capEye.read()
 		self.calibPoints = {}
