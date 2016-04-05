@@ -5,14 +5,23 @@ import numpy as np
 import cv2, os
 import wx
 import time
+import csv
 
 class CameraObject():
 	def __init__(self, gazeObject):
+
 		self.capScene = cv2.VideoCapture(0)
+		if not self.capScene.isOpened():
+			raise NameError("Scene Camera don`t connected")
+			return
 		# self.capEye = cv2.VideoCapture(1)
-		self.sceneIm = self.capScene.read()
+		# if not self.capEye.isOpened():
+		# 	raise NameError("Eye Camera don`t connected")
+		# 	return
+
+		ret, self.sceneIm = self.capScene.read()
 		self.sceneThresh = None
-		# self.eyeIm = self.capEye.read()
+		# ret, self.eyeIm = self.capEye.read()
 		self.calibPoints = []
 		self.calibPointsLabel = []
 		self.pupilCenters = []
@@ -21,84 +30,75 @@ class CameraObject():
 
 	def update(self, drawLabel):
 		points = self.readFrameScene();
-		pupilCenter, LED_centroid = self.readFrameEye();
+		# pupilCenter, LED_centroid = self.readFrameEye();
 
+		# if pupilCenter is None or points is None:
+		# 	return
+		if points is None:
+			return
 		self.calibPoints.append(points)
-		self.calibPointsLabel.append(drawLable)
-		self.pupilCenters.append(pupilCenter)
-		self.LED_centroids.append(LED_centroid)
+		self.calibPointsLabel.append(drawLabel)
+		# self.pupilCenters.append(pupilCenter)
+		# self.LED_centroids.append(LED_centroid)
+		return
 
 	def readFrameScene(self):
 		scene_threshold = 232
 		ret, frame = self.capScene.read()
 		gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-		ret, thresh = cv2.threshold(gray, scene_threshold ,255,0)
 
-		points = self.imProcessingScene(thresh)
+		ret, thresh = cv2.threshold(gray, scene_threshold, 255, 0)
 		self.sceneIm = frame
 		self.sceneThresh = thresh
-		if points is None:
-			return frame
 
+		points = self.imProcessingScene(thresh)
 
-		return frame
+		return points
 
-	def readFrameEye(self):
-		ret, frame = self.capEye.read()
-		[frame, pupilCenter, LED_centroid] = self.imProcessingEye(frame)
+	def imProcessingScene(self, threshIm):
 
-		if pupilCenter == None:
-			return None, None, self.eyeIm
-
-		# self.pupilCenters[drawLabel] = pupilCenter
-		# self.LED_centroids[drawLabel] = LED_centroids
-		self.eyeIm = frame
-		return pupilCenter, LED_centroid
-
-	def clearObject(self):
-		self.capScene.release()
-		# self.capEye.release()
-		cv2.destroyAllWindows()
-
-	def imProcessingScene(self, frame):
-		# points = self.getCalibrationPointFromIm(frame)
-		# gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-		output = frame.copy()
-		circles = cv2.HoughCircles(output, cv2.cv.CV_HOUGH_GRADIENT, 1.1, 2000,
+		# out = self.sceneIm.copy()
+		circles = cv2.HoughCircles(threshIm, cv2.cv.CV_HOUGH_GRADIENT, 1.1, 2000,
 			param1=30,
 			param2=5,
 			minRadius=5,
 			maxRadius=8)
 
+		# print circles[0, 0]
 		if circles is None:
 			return None
+		else:
+			return circles[0, 0]
 
-		points = circles[0,0]
-		# out = self.camera.sceneIm.copy()
-		# ensure at least some circles were found
-		# print circles[0,0]
-		# circles = np.uint16(np.around(circles))
-		# for i in circles[0,:]:
-		# 	cv2.circle(out,(i[0],i[1]),i[2],(0,255,0),2)
-		# 	cv2.circle(out,(i[0],i[1]),2,(0,0,255),3)
-		
-		# cv2.imshow("output", out)
-		# cv2.waitKey(0)
+	def readFrameEye(self, num):
+		ret, frame = self.capEye.read()
+
+		if ret == False:
+			return None
+
+		[frame, pupilCenter, LED_centroids] = self.imProcessingEye(frame)
+
+		if pupilCenter == None | len(LED_centroids) < 2:
+			return self.eyeIm
+
+		self.pupilCenters[num] = pupilCenter
+		self.LED_centroids[num] = LED_centroids
 
 
-		# points = [0,0]
-		# resized_image = cv2.resize(frame, (500, 375)) 
-		# gray = resized_image
-		return points
+		# frame = self.imProcessingEye(frame)
+
+		self.eyeIm = frame
+		return frame
+
+	def clearObject(self):
+		self.capScene.release()
+		self.capEye.release()
+		cv2.destroyAllWindows()
 
 	def imProcessingEye(self, im):
-		print "Image processing eye"
 		gazeObject = self.gazeObject
 		grayIm = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
 
-		# pupilCenter = []
-		# LED_centroids = []
 		pupilCenter = gazeObject.GetPupilBoundaryPoints(grayIm)
 		if pupilCenter == None:
 			return im, None, None
@@ -108,24 +108,29 @@ class CameraObject():
 			im2 = cv2.circle(im, tuple(LED_centroids[0]), 10, (0,0,255), 2)
 			im2 = cv2.circle(im2, tuple(LED_centroids[1]), 10, (0,0,255), 2)
 			im2 = cv2.circle(im2, tuple(pupilCenter), 10, (0,0,255),2)
-			cv2.imshow('frame', im)
-			cv2.waitKey(1)
+			# cv2.imshow('frame', im)
+			# cv2.waitKey(1)
 
-		return grayIm, pupilCenter, LED_centroids
+		return grayIm
 
 	def getCalibrationPointFromIm(self, im):
 		# print "Get Calibration Points from Image"
 
 		# Get Saliency map iffi
-	    # sm = SaliencyMap(im)
-	    # print sm
-	    return im
-	    # oi.imshow_array([sm.map])
+		# sm = SaliencyMap(im)
+		# print sm
+		return [[50,50],[100,100]]
+		# oi.imshow_array([sm.map])
 
-	def clear(self):
-		self.LED_centroids.clear()
-		self.calibPoints.clear()
-		self.pupilCenters.clear()
+	def saveData(self):
+
+		with open("calibration.csv", "wb") as csvFile:
+			writer = csv.writer(csvFile, delimiter=',')
+			for i in xrange(0,len(self.calibPoints)):
+				writer.writerow(np.append(self.calibPoints[i], self.calibPointsLabel[i]))
+			# writer.writerow(self.pupilCenters)
+			# writer.writerow(self.LED_centroids)
+
 
 	def optimize(self):
 		gazeObject = self.gazeObject();
@@ -154,9 +159,7 @@ class AnimationPanel(wx.Panel):
 		self.Bind(wx.EVT_TIMER, self.OnTimer, self.timer)
 		self.Bind(wx.EVT_TIMER, self.OnCameraTimer, self.cameraTimer)
 		self.timer.Start(2000)
-		self.cameraTimer.Start(20)
-
-		# self.video = cv2.VideoWriter('video.avi',cv2.cv.CV_FOURCC(*'XVID'), 20, (640,480))
+		self.cameraTimer.Start(50)
 
 	def setPoint(self, point, radius, color):
 		_point = pixelPoint(point[0], point[1], radius, color)
@@ -174,12 +177,13 @@ class AnimationPanel(wx.Panel):
 	def OnTimer(self, event):
 		self.drawNum += 1
 		if self.drawNum > 9:
-			self.camera.clear()
+			self.camera.saveData()
 			self.GetParent().Close()
 		self.Refresh()
 
 	def OnCameraTimer(self, event):
 		self.camera.update(self.drawNum)
+
 
 	def drawPoint(self):
 		for point in self.pointList:
@@ -238,10 +242,19 @@ def main():
 	DataObj = CalibrationData(wx.Display(1).GetGeometry().GetSize())
 
 	frame = CalibrationFrame(None)
+	# frame.Show(True)
 	frame.OnFullScreen()
 	frame.panel.DataObj = DataObj
 	frame.panel.camera = cameraObject
 	app.MainLoop()
+
+	# cap = cv2.VideoCapture(0)
+
+	# while(True):
+	# 	ret, frame = cap.read()
+	# 	cv2.imshow('frame', frame)
+	# 	if cv2.waitKey(1) & 0xFF == ord('q'):
+	# 		break
 
 if __name__ == "__main__":
 	main();
