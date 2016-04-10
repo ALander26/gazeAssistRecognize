@@ -14,14 +14,14 @@ class CameraObject():
 		if not self.capScene.isOpened():
 			raise NameError("Scene Camera don`t connected")
 			return
-		# self.capEye = cv2.VideoCapture(1)
-		# if not self.capEye.isOpened():
-		# 	raise NameError("Eye Camera don`t connected")
-		# 	return
+		self.capEye = cv2.VideoCapture(1)
+		if not self.capEye.isOpened():
+			raise NameError("Eye Camera don`t connected")
+			return
 
 		ret, self.sceneIm = self.capScene.read()
 		self.sceneThresh = None
-		# ret, self.eyeIm = self.capEye.read()
+		ret, self.eyeIm = self.capEye.read()
 		self.calibPoints = []
 		self.calibPointsLabel = []
 		self.pupilCenters = []
@@ -29,31 +29,36 @@ class CameraObject():
 		self.gazeObject = gazeObject
 
 	def update(self, drawLabel):
-		points = self.readFrameScene();
-		# pupilCenter, LED_centroid = self.readFrameEye();
+		sceneIm, points = self.readFrameScene();
+		eyeIm, pupilCenter, LED_centroid = self.readFrameEye();
 
-		# if pupilCenter is None or points is None:
-		# 	return
-		if points is None:
+		if pupilCenter is None or points is None:
 			return
+		# if points is None:
+		# 	return
+
 		self.calibPoints.append(points)
 		self.calibPointsLabel.append(drawLabel)
-		# self.pupilCenters.append(pupilCenter)
-		# self.LED_centroids.append(LED_centroid)
+		self.pupilCenters.append(pupilCenter)
+		self.LED_centroids.append(LED_centroid)
 		return
 
 	def readFrameScene(self):
 		scene_threshold = 232
 		ret, frame = self.capScene.read()
-		gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-		ret, thresh = cv2.threshold(gray, scene_threshold, 255, 0)
+		if ret == False:
+			return frame, None
+
 		self.sceneIm = frame
-		self.sceneThresh = thresh
 
+		gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+		ret, thresh = cv2.threshold(gray, scene_threshold, 255, 0)
+
+		self.sceneThresh = thresh
 		points = self.imProcessingScene(thresh)
 
-		return points
+		return frame, points
 
 	def imProcessingScene(self, threshIm):
 
@@ -70,25 +75,20 @@ class CameraObject():
 		else:
 			return circles[0, 0]
 
-	def readFrameEye(self, num):
+	def readFrameEye(self):
 		ret, frame = self.capEye.read()
 
 		if ret == False:
-			return None
-
-		[frame, pupilCenter, LED_centroids] = self.imProcessingEye(frame)
-
-		if pupilCenter == None | len(LED_centroids) < 2:
-			return self.eyeIm
-
-		self.pupilCenters[num] = pupilCenter
-		self.LED_centroids[num] = LED_centroids
-
-
-		# frame = self.imProcessingEye(frame)
+			return None, None, None
 
 		self.eyeIm = frame
-		return frame
+
+		pupilCenter, LED_centroids = self.imProcessingEye(frame)
+
+		if pupilCenter == None | len(LED_centroids) < 2:
+			return frame, None, None
+
+		return frame, pupilCenter, LED_centroids
 
 	def clearObject(self):
 		self.capScene.release()
@@ -101,7 +101,7 @@ class CameraObject():
 
 		pupilCenter = gazeObject.GetPupilBoundaryPoints(grayIm)
 		if pupilCenter == None:
-			return im, None, None
+			return pupilCenter
 		else:		
 			LED_centroids = gazeObject.FindLEDCentroids(grayIm)
 
@@ -111,16 +111,7 @@ class CameraObject():
 			# cv2.imshow('frame', im)
 			# cv2.waitKey(1)
 
-		return grayIm
-
-	def getCalibrationPointFromIm(self, im):
-		# print "Get Calibration Points from Image"
-
-		# Get Saliency map iffi
-		# sm = SaliencyMap(im)
-		# print sm
-		return [[50,50],[100,100]]
-		# oi.imshow_array([sm.map])
+		return pupilCenter, LED_centroids
 
 	def saveData(self):
 
@@ -128,8 +119,8 @@ class CameraObject():
 			writer = csv.writer(csvFile, delimiter=',')
 			for i in xrange(0,len(self.calibPoints)):
 				writer.writerow(np.append(self.calibPoints[i], self.calibPointsLabel[i]))
-			# writer.writerow(self.pupilCenters)
-			# writer.writerow(self.LED_centroids)
+				writer.writerow(self.pupilCenters)
+				writer.writerow(self.LED_centroids)
 
 
 	def optimize(self):
